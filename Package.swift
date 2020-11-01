@@ -6,9 +6,7 @@ import PackageDescription
 let package = Package(
     name: "swift-log-json-to-std",
     products: [
-        .library(
-            name: "LoggingJSONToSTD",
-            targets: ["LoggingJSONToSTD"]),
+        .library(name: "LoggingJSONToSTD", targets: ["LoggingJSONToSTD"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-log.git", .upToNextMajor(from: "1.2.0"))

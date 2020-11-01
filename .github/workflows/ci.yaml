@@ -2,19 +2,22 @@ name: CI
 on: 
   push:
     branches: 
-    - master
+    - main
   pull_request:
     branches: 
     - "*"
 
 jobs:
 
-  "Unit-Tests":
+  "tuxOS-Tests":
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         images:
+        - swift:5.1
         - swift:5.2
+        - swift:5.3
     container:
       image: ${{ matrix.images }}
     steps:
@@ -30,3 +33,29 @@ jobs:
       uses: codecov/codecov-action@v1
       with:
         file: info.lcov
+
+  "macOS-Tests":
+    runs-on: macOS-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        xcode:
+        - Xcode_11.6.app
+        - Xcode_12.2.app
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Show all Xcode versions
+      run: ls -an /Applications/ | grep Xcode*
+    - name: Change Xcode command line tools
+      run: sudo xcode-select -s /Applications/${{ matrix.xcode }}/Contents/Developer
+    - name: SPM Build
+      run: swift build
+    - name: SPM Tests
+      run: swift test --parallel -Xswiftc -DDEBUG
+    - name: Xcode Tests
+      run: |
+        swift package generate-xcodeproj
+        xcodebuild -quiet -parallel-testing-enabled YES -scheme swift-log-json-to-std-Package -enableCodeCoverage YES build test
+    - name: Codecov
+      run: bash <(curl -s https://codecov.io/bash) -t ${{secrets.CODECOV_TOKEN}} -f *.coverage.txt
