@@ -137,7 +137,6 @@ public struct JSONLogHandler: LogHandler {
         bytes.append(contentsOf: message.description.utf8)
         
         bytes.append(contentsOf: "\"}\n".utf8)
-//        bytes.append(UInt8(ascii: ""))
         
         return String(decoding: bytes, as: Unicode.UTF8.self)
     }
@@ -162,7 +161,7 @@ extension Logger.MetadataValue {
         case .array(let array):
             var iterator = array.makeIterator()
             bytes.append(UInt8(ascii: "["))
-            // we don't kine branching, this is why we have this extra
+            // we don't like branching, this is why we have this extra
             if let first = iterator.next() {
               first.appendBytes(to: &bytes)
             }
@@ -195,8 +194,6 @@ extension Logger.MetadataValue {
             case false:
                 bytes.append(contentsOf: "false".utf8)
             }
-        case .stringConvertible(let convertible) where convertible is AnyNumeric:
-            bytes.append(contentsOf: convertible.description.utf8)
         case .stringConvertible(let convertible): // fallback
             Self.encodeString(convertible.description, to: &bytes)
         }
@@ -215,14 +212,55 @@ extension Logger.MetadataValue {
                 // quotation marks, except for the characters that MUST be escaped:
                 // quotation mark, reverse solidus, and the control characters (U+0000
                 // through U+001F).
-                // https://tools.ietf.org/html/rfc7159#section-7
+                // https://tools.ietf.org/html/rfc8259#section-7
             
                 // copy the current range over
-                bytes.append(contentsOf: stringBytes[startCopyIndex..<nextIndex])
-                bytes.append(UInt8(ascii: "\\"))
-                bytes.append(stringBytes[nextIndex])
-            
-                nextIndex      = stringBytes.index(after: nextIndex)
+                bytes.append(contentsOf: stringBytes[startCopyIndex ..< nextIndex])
+                
+                switch stringBytes[nextIndex] {
+                case UInt8(ascii: "\""): // quotation mark
+                    bytes.append(UInt8(ascii: "\\"))
+                    bytes.append(UInt8(ascii: "\""))
+                case UInt8(ascii: "\\"): // reverse solidus
+                    bytes.append(UInt8(ascii: "\\"))
+                    bytes.append(UInt8(ascii: "\\"))
+                case 0x08: // backspace
+                    bytes.append(UInt8(ascii: "\\"))
+                    bytes.append(UInt8(ascii: "b"))
+                case 0x0C: // form feed
+                    bytes.append(UInt8(ascii: "\\"))
+                    bytes.append(UInt8(ascii: "f"))
+                case 0x0A: // line feed
+                    bytes.append(UInt8(ascii: "\\"))
+                    bytes.append(UInt8(ascii: "n"))
+                case 0x0D: // carriage return
+                    bytes.append(UInt8(ascii: "\\"))
+                    bytes.append(UInt8(ascii: "r"))
+                case 0x09: // tab
+                    bytes.append(UInt8(ascii: "\\"))
+                    bytes.append(UInt8(ascii: "t"))
+                default:
+                    func valueToAscii(_ value: UInt8) -> UInt8 {
+                        switch value {
+                        case 0 ... 9:
+                            return value + UInt8(ascii: "0")
+                        case 10 ... 15:
+                            return value - 10 + UInt8(ascii: "A")
+                        default:
+                            preconditionFailure()
+                        }
+                    }
+                    bytes.append(UInt8(ascii: "\\"))
+                    bytes.append(UInt8(ascii: "u"))
+                    bytes.append(UInt8(ascii: "0"))
+                    bytes.append(UInt8(ascii: "0"))
+                    let first = stringBytes[nextIndex] / 16
+                    let remaining = stringBytes[nextIndex] % 16
+                    bytes.append(valueToAscii(first))
+                    bytes.append(valueToAscii(remaining))
+                }
+
+                nextIndex = stringBytes.index(after: nextIndex)
                 startCopyIndex = nextIndex
             default:
                 nextIndex      = stringBytes.index(after: nextIndex)
@@ -234,18 +272,3 @@ extension Logger.MetadataValue {
         bytes.append(UInt8(ascii: "\""))
     }
 }
-
-// HACK: This is so ugly, I can't believe it myself.
-protocol AnyNumeric: CustomStringConvertible {}
-extension Int8: AnyNumeric {}
-extension Int16: AnyNumeric {}
-extension Int32: AnyNumeric {}
-extension Int64: AnyNumeric {}
-extension UInt8: AnyNumeric {}
-extension UInt16: AnyNumeric {}
-extension UInt32: AnyNumeric {}
-extension UInt64: AnyNumeric {}
-extension Int: AnyNumeric {}
-extension UInt: AnyNumeric {}
-extension Float: AnyNumeric {}
-extension Double: AnyNumeric {}

@@ -19,7 +19,7 @@ final class JSONLogHandlerTests: XCTestCase {
         let timestamp: String
         let msg: String
         let level: Logger.Level
-        let metaNumber: Int
+        let metaNumber: String
         let metaTrue: Bool
         let metaFalse: Bool
         let metaString: String
@@ -52,7 +52,7 @@ final class JSONLogHandlerTests: XCTestCase {
         XCTAssertNoThrow(logMessage = try JSONDecoder().decode(LogMessage.self, from: XCTUnwrap(string?.data(using: .utf8))))
         
         XCTAssertEqual(logMessage?.msg, "test")
-        XCTAssertEqual(logMessage?.metaNumber, 1)
+        XCTAssertEqual(logMessage?.metaNumber, "1")
         XCTAssertEqual(logMessage?.metaTrue, true)
         XCTAssertEqual(logMessage?.metaFalse, false)
         XCTAssertEqual(logMessage?.metaString, "meta2")
